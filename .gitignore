@@ -7,3 +7,8 @@ __pycache__
 .vscode
 /wandb
 /pretrained
+pretrained/
+short_png/
+Campus-20250118T165924Z-004/
+/Campus-20250118T165924Z-004
+/short_png
