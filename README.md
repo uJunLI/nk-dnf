@@ -80,6 +80,7 @@ This repository contains the official implementation of the following paper:
 </tbody>
 </table>
 
+由于在将 PyTorch 代码转换为 Jittor 代码的过程中，Jittor 中并不支持 Sequential 模块，因此需要对 checkpoint 文件进行转换。为了实现这一点，请使用下载下来的 checkpoint 执行 trans-checkpoint.py 脚本，进行必要的转换处理。
 
 ## Quick Demo
 
