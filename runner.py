@@ -4,24 +4,26 @@ import datetime
 import yaml
 import git
 
-import torch
-import torch.backends.cudnn as cudnn
+import jittor as jt
 
-from timm.utils import AverageMeter
-
-from utils import load_checkpoint, load_pretrained, save_checkpoint, save_image_torch, get_grad_norm
+from utils import load_checkpoint, load_pretrained, save_checkpoint, save_image_jittor, get_grad_norm
 from utils.config import parse_options, copy_cfg, ordered_dict_to_dict
 from utils.scheduler import build_scheduler
 from utils.optimizer import build_optimizer
-from utils.metrics import get_psnr_torch, get_ssim_torch
+from utils.metrics import get_psnr_jittor, get_ssim_jittor
 from utils.loss import build_loss
 from utils.logger import create_logger
+from utils.clip_grad_norm_ import clip_grad_norm_
+from utils.AverageMeter import AverageMeter
 
 from models import build_model
 from datasets import build_train_loader, build_valid_loader, build_test_loader
 from forwards import build_forwards, build_profile
 
-from torch.utils.tensorboard import SummaryWriter
+
+
+
+from tensorboardX import SummaryWriter  # 使用tensorboardX
 
 def main(config):
     writer = SummaryWriter(os.path.join(config['output'], 'tensorboard'))
@@ -99,7 +101,7 @@ def main(config):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
 
-@torch.no_grad()
+@jt.no_grad()
 def profile_model(config, profile_forward, model, data_loader, logger):
     if profile_forward is not None:
         data_iter = iter(data_loader)
@@ -111,7 +113,6 @@ def profile_model(config, profile_forward, model, data_loader, logger):
     logger.info(f"Total Params: {n_parameters:,}")
 
 def train_one_epoch(config, train_forward, model, loss_list, data_loader, optimizer, scaler, epoch, lr_scheduler, writer):
-    torch.cuda.reset_peak_memory_stats()
     model.train()
     optimizer.zero_grad()
 
@@ -137,7 +138,7 @@ def train_one_epoch(config, train_forward, model, loss_list, data_loader, optimi
         loss.backward()
 
         if config['train'].get('clip_grad'):
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), config['train']['clip_grad'])
+            grad_norm = clip_grad_norm_(model.parameters(), config['train']['clip_grad'])
         else:
             grad_norm = get_grad_norm(model.parameters())
 
@@ -156,16 +157,14 @@ def train_one_epoch(config, train_forward, model, loss_list, data_loader, optimi
 
         if idx % config['print_per_iter'] == 0 or idx == num_steps:
             lr = optimizer.param_groups[0]['lr']
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (num_steps - idx)
             logger.info(
                 f'Train: [{epoch}/{config["train"]["epochs"]}][{idx}/{num_steps}]\t'
                 f'ETA {datetime.timedelta(seconds=int(etas))} LR {lr:.6f}\t'
-                f'Time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'Data {data_time.val:.4f} ({data_time.avg:.4f})\t'
-                f'Loss {loss_meter.val:.8f} ({loss_meter.avg:.8f})\t'
-                f'GradNorm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
-                f'Mem {memory_used:.0f}MB')
+                f'Time {batch_time.sum:.4f} ({batch_time.avg:.4f})\t'
+                f'Data {data_time.sum:.4f} ({data_time.avg:.4f})\t'
+                f'Loss {loss_meter.sum:.8f} ({loss_meter.avg:.8f})\t'
+                f'GradNorm {norm_meter.sum:.4f} ({norm_meter.avg:.4f})\t')
     if config['train']['lr_scheduler']['t_in_epochs']:
         lr_scheduler.step(epoch)
     logger.info(f"Train: [{epoch}/{config['train']['epochs']}] Time {datetime.timedelta(seconds=int(time.time()-start))}")
@@ -175,9 +174,8 @@ def train_one_epoch(config, train_forward, model, loss_list, data_loader, optimi
     for log_key, log_value in tensor_board_dict.items():
         writer.add_scalar(log_key, log_value, epoch)
 
-@torch.no_grad()
+@jt.no_grad()
 def validate(config, test_forward, model, loss_list, data_loader, epoch, writer):
-    torch.cuda.reset_max_memory_allocated()
     model.eval()
 
     logger.info(f"Valid: [{epoch}/{config['train']['epochs']}]\t")
@@ -215,15 +213,15 @@ def validate(config, test_forward, model, loss_list, data_loader, epoch, writer)
         end = time.time()
 
         if config['testset_as_validset'] or idx % config['print_per_iter'] == 0 or idx == len(data_loader):
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+            
             logger.info(
                 f'Valid: [{epoch}/{config["train"]["epochs"]}][{idx}/{len(data_loader)}]\t'
-                f'Time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'Data {data_time.val:.4f} ({data_time.avg:.4f})\t'
-                f'Loss {loss_meter.val:.8f} ({loss_meter.avg:.8f})\t'
-                f'PSNR {psnr_meter.val:.4f} ({psnr_meter.avg:.4f})\t'
-                f'SSIM {ssim_meter.val:.4f} ({ssim_meter.avg:.4f})\t'
-                f'Mem {memory_used:.0f}MB\t{os.path.basename(img_files[0])}')
+                f'Time {batch_time.sum:.4f} ({batch_time.avg:.4f})\t'
+                f'Data {data_time.sum:.4f} ({data_time.avg:.4f})\t'
+                f'Loss {loss_meter.sum:.8f} ({loss_meter.avg:.8f})\t'
+                f'PSNR {psnr_meter.sum:.4f} ({psnr_meter.avg:.4f})\t'
+                f'SSIM {ssim_meter.sum:.4f} ({ssim_meter.avg:.4f})\t')
+               
     logger.info(f'Valid: [{epoch}/{config["train"]["epochs"]}] PSNR {psnr_meter.avg:.4f}\tSSIM {ssim_meter.avg:.4f}')
     logger.info(f'Valid: [{epoch}/{config["train"]["epochs"]}] Time {datetime.timedelta(seconds=int(time.time()-start))}')
     tensor_board_dict = {'eval/loss_total':loss_meter.avg}
@@ -235,45 +233,45 @@ def validate(config, test_forward, model, loss_list, data_loader, epoch, writer)
         writer.add_scalar(log_key, log_value, epoch)
     return psnr_meter.avg, ssim_meter.avg, loss_meter.avg
 
-@torch.no_grad()
+@jt.no_grad()
 def validate_metric(config, epoch, outputs, targets, image_paths, target_params=None):
-    outputs = torch.clamp(outputs, 0, 1) * 255
+    outputs = jt.clamp(outputs, 0, 1) * 255
     targets = targets * 255
     if config['test']['round']:
         outputs = outputs.round()
         targets = targets.round()
-    psnrs = get_psnr_torch(outputs, targets)
-    ssims = get_ssim_torch(outputs, targets)
+    psnrs = get_psnr_jittor(outputs, targets)
+    ssims = get_ssim_jittor(outputs, targets)
 
     if config['test']['save_image'] and epoch % config['save_per_epoch'] == 0:
-        images = torch.cat((outputs, targets), dim=3)
+        images = jt.cat((outputs, targets), dim=3)
         result_path = os.path.join(config['output'], 'results', f'valid_{epoch:04d}')
         os.makedirs(result_path, exist_ok=True)
         for image, image_path, psnr in zip(images, image_paths, psnrs):
             save_path = os.path.join(result_path, f'{os.path.basename(image_path)[:-4]}_{psnr:.2f}.jpg')
-            save_image_torch(image, save_path)
+            save_image_jittor(image, save_path)
 
     return psnrs.mean(), ssims.mean()
 
-@torch.no_grad()
+@jt.no_grad()
 def test_metric_cuda(config, epoch, outputs, targets, image_paths, target_params=None):
-    outputs = torch.clamp(outputs, 0, 1) * 255
-    targets = torch.clamp(targets, 0, 1) * 255
+    outputs = jt.clamp(outputs, 0, 1) * 255
+    targets = jt.clamp(targets, 0, 1) * 255
     if config['test']['round']:
         outputs = outputs.round()
         targets = targets.round()
-    psnr = get_psnr_torch(outputs, targets)
-    ssim = get_ssim_torch(outputs, targets)
+    psnr = get_psnr_jittor(outputs, targets)
+    ssim = get_ssim_jittor(outputs, targets)
 
     if config['test']['save_image']:
         result_path = os.path.join(config['output'], 'results', f'test_{epoch:04d}')
         os.makedirs(result_path, exist_ok=True)
         save_path = os.path.join(result_path, f'{os.path.basename(image_paths[0])[:-4]}_{psnr.item():.2f}.png')
-        save_image_torch(outputs[0], save_path)
+        save_image_jittor(outputs[0], save_path)
 
     return psnr, ssim
 
-@torch.no_grad()
+@jt.no_grad()
 def throughput(config, forward, model, data_loader, logger):
     model.eval()
 
@@ -281,12 +279,13 @@ def throughput(config, forward, model, data_loader, logger):
         for i in range(30):
             forward(config, model, data)
         logger.info(f"throughput averaged with 100 times")
-        torch.cuda.synchronize()
+        # 此段代码对jittor进行热身，确保时间测试准确
+        jt.sync_all(True)
         tic = time.time()
         for i in range(100):
             pred, label = forward(config, model, data)
         batch_size = list(pred.values())[0].size(0)
-        torch.cuda.synchronize()
+        jt.sync_all(True)
         toc = time.time()
         logger.info(f"batch_size {batch_size} throughput {(toc - tic) * 1000 / (100 * batch_size)}ms")
         return
@@ -296,7 +295,7 @@ if __name__ == '__main__':
     args, config = parse_options()
     phase = 'train' if not args.test else 'test'
 
-    cudnn.benchmark = True
+    # cudnn.benchmark = True
 
     os.makedirs(config['output'], exist_ok=True)
     start_time = time.strftime("%y%m%d-%H%M", time.localtime())
@@ -318,7 +317,13 @@ if __name__ == '__main__':
 
     # print config
     logger.info("Config:\n" + yaml.dump(ordered_dict_to_dict(config), default_flow_style=False, sort_keys=False))
-    current_cuda_device = torch.cuda.get_device_properties(torch.cuda.current_device())
-    logger.info(f"Current CUDA Device: {current_cuda_device.name}, Total Mem: {int(current_cuda_device.total_memory / 1024 / 1024)}MB")
+
+    # 获取当前 CUDA 设备属性
+    current_cuda_device = jt.flags.cuda_archs
+    logger.info(f"Current CUDA Device: {current_cuda_device}")
+    jt.display_memory_info()
+
+    # 将信息记录到日志
+    
 
     main(config)

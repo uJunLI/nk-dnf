@@ -1,7 +1,7 @@
 import argparse
 import os
 import random
-import torch
+import jittor as jt
 import yaml
 from collections import OrderedDict
 from os import path as osp
@@ -10,8 +10,7 @@ from copy import deepcopy
 
 
 def set_random_seed(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    jt.set_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
 
@@ -122,18 +121,18 @@ def merge_from_base(cfg, cfg_path):
             
         return base_cfg
     return cfg
-            
-            
+
+
 def set_default_config(cfg):
     if 'train' not in cfg:
         cfg['train'] = {}
-    
+
     ##### default #####
     if 'output' not in cfg:
         cfg['output'] = 'runs'
     if 'tag' not in cfg:
         cfg['tag'] = 'debug'
-    
+
     ##### data #####
     if 'persistent_workers' not in cfg['data']:
         cfg['data']['persistent_workers'] = False
@@ -148,18 +147,18 @@ def set_default_config(cfg):
         cfg['data']['process']['v_flip'] = True
     if 'rotation' not in cfg['data']['process']:
         cfg['data']['process']['rotation'] = False
-        
+
     ##### train #####
     if 'auto_resume' not in cfg['train']:
         cfg['train']['auto_resume'] = False
-        
+
     ##### test #####
     if 'test' in cfg:
         if 'round' not in cfg['test']:
             cfg['test']['round'] = False
         if 'save_image' not in cfg['test']:
             cfg['test']['save_image'] = False
-        
+
     cfg['output'] = os.path.join(cfg.get('output', 'runs'), cfg['name'], cfg.get('tag', ''))
 
 

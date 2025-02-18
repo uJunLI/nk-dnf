@@ -1,12 +1,15 @@
-from torch import nn
+from jittor import nn
+from utils.conv_padding_mode import Pad2dMode
 
 # CI
 class DConv7(nn.Module):
     def __init__(self, f_number, padding_mode='reflect') -> None:
         super().__init__()
-        self.dconv = nn.Conv2d(f_number, f_number, kernel_size=7, padding=3, groups=f_number, padding_mode=padding_mode)
+        self.Pad2dMode = Pad2dMode(3,padding_mode)
+        self.dconv = nn.Conv2d(f_number, f_number, kernel_size=7, padding=0, groups=f_number)
 
-    def forward(self, x):
+    def execute(self, x):
+        x = self.Pad2dMode(x)
         return self.dconv(x)
 
 # Post-CI
@@ -17,7 +20,7 @@ class MLP(nn.Module):
         self.pwconv1 = nn.Conv2d(f_number, excitation_factor * f_number, kernel_size=1)
         self.pwconv2 = nn.Conv2d(f_number * excitation_factor, f_number, kernel_size=1)
 
-    def forward(self, x):
+    def execute(self, x):
         x = self.pwconv1(x)
         x = self.act(x)
         x = self.pwconv2(x)
@@ -29,5 +32,5 @@ class CID(nn.Module):
         self.channel_independent = DConv7(f_number, padding_mode)
         self.channel_dependent = MLP(f_number, excitation_factor=2)
 
-    def forward(self, x):
+    def execute(self, x):
         return self.channel_dependent(self.channel_independent(x))

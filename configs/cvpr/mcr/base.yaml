@@ -25,7 +25,7 @@ loss:
 
 data:
   type: MCRDictSet
-  data_path: ./dataset/mcr
+  data_path: ./dataset/
   load_npy: true
   num_workers: 10
   pin_memory: true

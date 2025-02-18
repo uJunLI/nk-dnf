@@ -1,5 +1,5 @@
-import torch.nn as nn
-from torch.nn import MSELoss, L1Loss
+import jittor as jt
+import jittor.nn as nn
 
 class Losses(nn.Module):
     def __init__(self, classes, names, weights, positions, gt_positions):
@@ -16,7 +16,7 @@ class Losses(nn.Module):
     def __len__(self):
         return len(self.names)
 
-    def forward(self, outputs, targets):
+    def execute(self, outputs, targets):
         losses = []
         for i in range(len(self.names)):
             loss = self.module_list[i](outputs[self.positions[i]], targets[self.gt_positions[i]]) * self.weights[i]

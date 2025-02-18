@@ -1,13 +1,15 @@
-from torch import nn
-from torch.nn import functional as F
+from jittor import nn
 
 from .fuse import PDConvFuse
 from .cid import CID
 from .mcc import MCC
 from .sample import SimpleDownsample, SimpleUpsample
+
 from .resudual_switch import ResidualSwitchBlock
 
 from abc import abstractmethod
+
+from utils.conv_padding_mode import Pad2dMode
 
 class DNFBase(nn.Module):
     def __init__(self, f_number, *,
@@ -35,8 +37,9 @@ class DNFBase(nn.Module):
         inchannel = 3 if block_size == 1 else block_size * block_size
         outchannel = 3 * block_size * block_size
 
-        self.feature_conv_0 = nn.Conv2d(inchannel, f_number, 5, 1, 2, bias=True, padding_mode=self.padding_mode)
-        self.feature_conv_1 = nn.Conv2d(f_number, f_number, 5, 1, 2, bias=True, padding_mode=self.padding_mode)
+        self.Pad2dMode_feature = Pad2dMode(2, self.padding_mode)
+        self.feature_conv_0 = nn.Conv2d(inchannel, f_number, 5, 1, 0, bias=True)
+        self.feature_conv_1 = nn.Conv2d(f_number, f_number, 5, 1, 0, bias=True)
 
         self.downsamples = nn.ModuleList([
             self.downsample_class(
@@ -77,7 +80,8 @@ class DNFBase(nn.Module):
             self.decoder_fuse_class(in_channels=f_number * (2 ** idx)) for idx in range(layers - 1)
         ])
 
-        self.conv_fuse_0 = nn.Conv2d(f_number, f_number, 3, 1, 1, bias=True, padding_mode=self.padding_mode)
+        self.Pad2dMode_fuse = Pad2dMode(1, self.padding_mode)
+        self.conv_fuse_0 = nn.Conv2d(f_number, f_number, 3, 1, 0, bias=True)
         self.conv_fuse_1 = nn.Conv2d(f_number, outchannel, 1, 1, 0, bias=True)
 
         if block_size > 1:
@@ -106,8 +110,8 @@ class DNFBase(nn.Module):
         self.crop_indices = (left_pad, w+left_pad, top_pad, h+top_pad)
 
         # Pad the tensor with reflect mode
-        padded_tensor = F.pad(
-            x, (left_pad, right_pad, top_pad, bottom_pad), mode="reflect"
+        padded_tensor = nn.pad(
+            x, [left_pad, right_pad, top_pad, bottom_pad], mode="reflect"
         )
 
         return padded_tensor
@@ -118,10 +122,10 @@ class DNFBase(nn.Module):
         res1 = res1[:, :, top:bottom, left:right] if res1 is not None else None
         return x, res1
 
-    def forward(self, x):
+    def execute(self, x):
         x = self._check_and_padding(x)
-        x = self.act(self.feature_conv_0(x))
-        x = self.feature_conv_1(x)
+        x = self.act(self.feature_conv_0(self.Pad2dMode_feature(x)))
+        x = self.feature_conv_1(self.Pad2dMode_feature(x))
         f_short_cut = x
 
         ## encoder, local residual switch off
@@ -146,7 +150,7 @@ class DNFBase(nn.Module):
             x = fuse(x, encoder_feature)
         x = self.color_correction_blocks[0](x)
 
-        x = self.act(self.conv_fuse_0(x))
+        x = self.act(self.conv_fuse_0(self.Pad2dMode_fuse(x)))
         x = self.conv_fuse_1(x)
         x = self.pixel_shuffle(x)
         rgb, raw = self._check_and_crop(x, res1)

@@ -1,12 +1,5 @@
-# --------------------------------------------------------
-# Swin Transformer
-# Copyright (c) 2021 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Ze Liu
-# --------------------------------------------------------
-
-from torch import optim as optim
-# from pytorch_lamb import Lamb
+import jittor as jt
+from jittor import optim as optim
 
 def build_optimizer(config, model):
     """
@@ -26,8 +19,8 @@ def build_optimizer(config, model):
         optimizer = optim.SGD(parameters, momentum=config['optimizer']['momentum'], nesterov=True,
                               lr=config['base_lr'], weight_decay=config['weight_decay'])
     elif opt_lower == 'adamw':
-        optimizer = optim.AdamW(parameters, eps=config['optimizer']['eps'], betas=config['optimizer']['betas'],
-                                lr=config['base_lr'], weight_decay=config['weight_decay'])
+        optimizer = optim.Adam(parameters, lr=config['base_lr'], weight_decay=config['weight_decay'], 
+                               betas=config['optimizer']['betas'], eps=config['optimizer']['eps'])
 
     return optimizer
 

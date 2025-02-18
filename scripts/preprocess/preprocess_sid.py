@@ -149,6 +149,9 @@ if __name__ == '__main__':
         os.makedirs(post_jpg_path, exist_ok=True)
         os.makedirs(post_png_path, exist_ok=True)
 
+    print(meta[args.camera]["raw_ext"])
+    print(split_path)
+    split_path = "./short_png/Sony/short"
     image_list = glob(os.path.join(split_path, f'*.{meta[args.camera]["raw_ext"]}'))
     # image_list = image_list[:10]
     print('number of images:', len(image_list))

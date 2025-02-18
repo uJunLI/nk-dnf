@@ -1,4 +1,4 @@
-from torch import nn
+from jittor import nn
 
 from .dnf_utils.base import DNFBase
 from .dnf_utils.cid import CID
@@ -6,7 +6,7 @@ from .dnf_utils.mcc import MCC
 from .dnf_utils.fuse import PDConvFuse, GFM
 from .dnf_utils.resudual_switch import ResidualSwitchBlock
 from utils.registry import MODEL_REGISTRY
-
+from utils.conv_padding_mode import Pad2dMode
 
 @MODEL_REGISTRY.register()
 class SingleStageNet(DNFBase):
@@ -52,13 +52,15 @@ class MultiStageNet(DNFBase):
         self.denoising_decoder_fuses = nn.ModuleList([
             self.decoder_fuse_class(in_channels=f_number * (2 ** idx)) for idx in range(layers - 1)
         ])
-
-        self.aux_conv_fuse_0 = nn.Conv2d(f_number, f_number, 3, 1, 1, bias=True, padding_mode=self.padding_mode)
+        
+        self.Pad2dMode_fuse = Pad2dMode(1,self.padding_mode)
+        self.aux_conv_fuse_0 = nn.Conv2d(f_number, f_number, 3, 1, 0, bias=True)
         self.aux_conv_fuse_1 = nn.Conv2d(f_number, aux_outchannel, 1, 1, 0, bias=True)
         
         inchannel = 3 if block_size == 1 else block_size * block_size
-        self.aux_feature_conv_0 = nn.Conv2d(inchannel, f_number, 5, 1, 2, bias=True, padding_mode=self.padding_mode)
-        self.aux_feature_conv_1 = nn.Conv2d(f_number, f_number, 5, 1, 2, bias=True, padding_mode=self.padding_mode)
+        self.Pad2dMode_feature = Pad2dMode(2,self.padding_mode)
+        self.aux_feature_conv_0 = nn.Conv2d(inchannel, f_number, 5, 1, 0, bias=True)
+        self.aux_feature_conv_1 = nn.Conv2d(f_number, f_number, 5, 1, 0, bias=True)
         
         head = [2 ** layer for layer in range(layers)]
         self.aux_color_correction_blocks = nn.ModuleList([
@@ -92,13 +94,13 @@ class MultiStageNet(DNFBase):
         x = self.aux_denoising_blocks[0](x, 1)
         denoise_decoder_features.append(x)
         x = x + f_short_cut
-        x = self.act(self.aux_conv_fuse_0(x))
+        x = self.act(self.aux_conv_fuse_0(self.Pad2dMode_fuse(x)))
         x = self.aux_conv_fuse_1(x)
         res1 = x
 
         encoder_features = []
-        x = self.act(self.aux_feature_conv_0(res1))
-        x = self.aux_feature_conv_1(x)
+        x = self.act(self.aux_feature_conv_0(self.Pad2dMode_feature(res1)))
+        x = self.aux_feature_conv_1(self.Pad2dMode_feature(x))
         for color_correction, down in zip(self.aux_color_correction_blocks[:-1], self.aux_downsamples):
             x = color_correction(x)
             encoder_features.append(x)
@@ -147,8 +149,8 @@ class DNF(DNFBase):
         self.denoising_decoder_fuses = nn.ModuleList([
             self.decoder_fuse_class(in_channels=f_number * (2 ** idx)) for idx in range(layers - 1)
         ])
-
-        self.aux_conv_fuse_0 = nn.Conv2d(f_number, f_number, 3, 1, 1, bias=True, padding_mode=self.padding_mode)
+        self.Pad2dMode_fuse = Pad2dMode(1,self.padding_mode)
+        self.aux_conv_fuse_0 = nn.Conv2d(f_number, f_number, 3, 1, 0, bias=True)
         self.aux_conv_fuse_1 = nn.Conv2d(f_number, aux_outchannel, 1, 1, 0, bias=True)
 
     def _pass_features_to_color_decoder(self, x, f_short_cut, encoder_features):
@@ -167,7 +169,7 @@ class DNF(DNFBase):
         x = self.aux_denoising_blocks[0](x, 1)
         denoise_decoder_features.append(x)
         x = x + f_short_cut
-        x = self.act(self.aux_conv_fuse_0(x))
+        x = self.act(self.aux_conv_fuse_0(self.Pad2dMode_fuse(x)))
         x = self.aux_conv_fuse_1(x)
         res1 = x
 

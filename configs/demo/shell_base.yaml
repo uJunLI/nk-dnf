@@ -13,5 +13,5 @@ data:
     max_clip: 1.0
     min_clip: null
   test:
-    batch_size: 2
+    batch_size: 1
     ratio: 50

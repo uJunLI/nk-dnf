@@ -1,5 +1,5 @@
-import torch
-from torch import nn
+import jittor as jt
+from jittor import nn
 
 from utils.registry import MODEL_REGISTRY
 
@@ -49,7 +49,7 @@ class SIDUNet(nn.Module):
         self.conv10_1 = nn.Conv2d(channels, outchannels, kernel_size=1, stride=1)
         self.pixel_shuffle = nn.PixelShuffle(block_size)
 
-    def forward(self, x):
+    def execute(self, x):
         conv1 = self.lrelu(self.conv1_1(x))
         conv1 = self.lrelu(self.conv1_2(conv1))
         pool1 = self.pool1(conv1)
@@ -70,22 +70,22 @@ class SIDUNet(nn.Module):
         conv5 = self.lrelu(self.conv5_2(conv5))
 
         up6 = self.upv6(conv5)
-        up6 = torch.cat([up6, conv4], 1)
+        up6 = jt.cat([up6, conv4], 1)
         conv6 = self.lrelu(self.conv6_1(up6))
         conv6 = self.lrelu(self.conv6_2(conv6))
 
         up7 = self.upv7(conv6)
-        up7 = torch.cat([up7, conv3], 1)
+        up7 = jt.cat([up7, conv3], 1)
         conv7 = self.lrelu(self.conv7_1(up7))
         conv7 = self.lrelu(self.conv7_2(conv7))
 
         up8 = self.upv8(conv7)
-        up8 = torch.cat([up8, conv2], 1)
+        up8 = jt.cat([up8, conv2], 1)
         conv8 = self.lrelu(self.conv8_1(up8))
         conv8 = self.lrelu(self.conv8_2(conv8))
 
         up9 = self.upv9(conv8)
-        up9 = torch.cat([up9, conv1], 1)
+        up9 = jt.cat([up9, conv1], 1)
         conv9 = self.lrelu(self.conv9_1(up9))
         conv9 = self.lrelu(self.conv9_2(conv9))
 
@@ -94,5 +94,5 @@ class SIDUNet(nn.Module):
         return out
 
     def lrelu(self, x):
-        outt = torch.max(0.2 * x, x)
+        outt = jt.maximum(0.2 * x, x)
         return outt
