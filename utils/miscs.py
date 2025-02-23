@@ -44,12 +44,19 @@ def load_pretrained(config, model, logger):
 
 
 def save_checkpoint(config, epoch, model, max_psnr, optimizer, lr_scheduler, logger, is_best=False):
-    save_state = {'model': model.state_dict(),
-                  'optimizer': optimizer.state_dict(),
-                  'lr_scheduler': lr_scheduler.state_dict(),
-                  'max_psnr': max_psnr,
-                  'epoch': epoch,
-                  'config': config}
+    save_state = {
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'lr_scheduler_state_dict': {
+            'base_lr': lr_scheduler.base_lr,
+            'min_lr': lr_scheduler.eta_min,
+            'T_max': lr_scheduler.T_max,
+            'last_epoch': lr_scheduler.last_epoch
+        },
+        'max_psnr': max_psnr,
+        'epoch': epoch,
+        'config': config
+    }
 
     os.makedirs(os.path.join(config['output'], 'checkpoints'), exist_ok=True)
 

@@ -6,15 +6,17 @@ class PSNR(nn.Module):
         super().__init__()
 
     def execute(self, x, gt):
-        mse = jt.mean((x - gt) ** 2, dim=[1, 2, 3])
-        return 20 * jt.log10(255.0 / jt.sqrt(mse))
+        # mse = jt.mean((x - gt) ** 2, dim=[1, 2, 3])
+        mse = jt.mean((x - gt) ** 2)
+        return 20 * jt.log(255.0 / jt.sqrt(mse)) / jt.log(10)
 
 def get_ssim_jittor(x, gt):
     return ssim(x, gt, size_average=False)
 
 def get_psnr_jittor(x, gt, data_range=255.0):
-    mse = jt.mean((x - gt) ** 2, dim=[1, 2, 3])
-    return 20 * jt.log10(data_range / jt.sqrt(mse))
+    mse = jt.mean((x - gt) ** 2)
+    # mse = jt.mean((x - gt) ** 2, dim=[1, 2, 3])
+    return 20 * jt.log(data_range / jt.sqrt(mse)) / jt.log(10)
 
 
 # Copyright 2020 by Gongfan Fang, Zhejiang University.
@@ -59,7 +61,9 @@ def gaussian_filter(input, win):
     out = input
     for i, s in enumerate(input.shape[2:]):
         if s >= win.shape[-1]:
+            jt.compiler.is_cuda = 0
             out = conv(out, weight=win.transpose(2 + i, -1), stride=1, padding=0, groups=C)
+            jt.compiler.is_cuda = 1
         else:
             warnings.warn(
                 f"Skipping Gaussian Smoothing at dimension 2+{i} for input: {input.shape} and win size: {win.shape[-1]}"
@@ -87,7 +91,7 @@ def _ssim(X, Y, data_range, win, size_average=True, K=(0.01, 0.03)):
     C1 = (K1 * data_range) ** 2
     C2 = (K2 * data_range) ** 2
 
-    win = win.to(X.device, dtype=X.dtype)
+    # win = win.to(X.device, dtype=X.dtype)
 
     mu1 = gaussian_filter(X, win)
     mu2 = gaussian_filter(Y, win)
@@ -136,15 +140,19 @@ def ssim(
     if not X.shape == Y.shape:
         raise ValueError("Input images should have the same dimensions.")
 
-    for d in range(len(X.shape) - 1, 1, -1):
-        X = X.squeeze(dim=d)
-        Y = Y.squeeze(dim=d)
+
+    print(X.shape)
+    print(Y.shape)
+    # for d in range(len(X.shape) - 1, 1, -1):
+    # X = X.squeeze(dim=d)
+    # Y = Y.squeeze(dim=d)
 
     if len(X.shape) not in (4, 5):
         raise ValueError(f"Input images should be 4-d or 5-d tensors, but got {X.shape}")
 
-    if not X.type() == Y.type():
+    if not X.dtype == Y.dtype:
         raise ValueError("Input images should have the same dtype.")
+
 
     if win is not None:  # set win_size
         win_size = win.shape[-1]
@@ -187,11 +195,11 @@ def ms_ssim(
     if not X.shape == Y.shape:
         raise ValueError("Input images should have the same dimensions.")
 
-    for d in range(len(X.shape) - 1, 1, -1):
-        X = X.squeeze(dim=d)
-        Y = Y.squeeze(dim=d)
+    # for d in range(len(X.shape) - 1, 1, -1):
+    #     X = X.squeeze(dim=d)
+    #     Y = Y.squeeze(dim=d)
 
-    if not X.type() == Y.type():
+    if not X.dtype == Y.dtype:
         raise ValueError("Input images should have the same dtype.")
 
     if len(X.shape) == 4:
@@ -214,7 +222,7 @@ def ms_ssim(
 
     if weights is None:
         weights = [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]
-    weights = jt.array(weights, device=X.device, dtype=X.dtype)
+    weights = jt.array(weights, dtype=X.dtype)
 
     if win is None:
         win = _fspecial_gauss_1d(win_size, win_sigma)

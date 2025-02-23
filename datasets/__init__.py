@@ -53,5 +53,6 @@ def build_test_loader(dataset_cfg, num_workers=None):
     if num_workers is None:
         num_workers = dataset_cfg['num_workers']
     test_dataset = build_dataset(dataset_cfg, 'test')
+
     test_dataloader = DataLoader(test_dataset, batch_size=dataset_cfg['test']['batch_size'], shuffle=False, num_workers=num_workers)
     return test_dataloader

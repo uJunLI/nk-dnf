@@ -11,7 +11,9 @@ class PDConvFuse(nn.Module):
         self.feature_num = feature_num
         self.act = nn.GELU()
         self.pwconv = nn.Conv2d(feature_num * in_channels, in_channels, 1, 1, 0, bias=bias)
+        jt.compiler.is_cuda = 0
         self.dwconv = nn.Conv2d(in_channels, in_channels, 3, 1, 1, bias=bias, groups=in_channels)
+        jt.compiler.is_cuda = 1
 
     def execute(self, *inp_feats):
         assert len(inp_feats) == self.feature_num
@@ -25,7 +27,9 @@ class GFM(nn.Module):
         hidden_features = in_channels * feature_num
         self.pwconv = nn.Conv2d(hidden_features, hidden_features * 2, 1, 1, 0, bias=bias)
         self.Pad2dMode = Pad2dMode(1,padding_mode)
+        jt.compiler.is_cuda = 0
         self.dwconv = nn.Conv2d(hidden_features * 2, hidden_features * 2, 3, 1, 0, bias=bias, groups=hidden_features * 2)
+        jt.compiler.is_cuda = 1
         self.project_out = nn.Conv2d(hidden_features, in_channels, kernel_size=1, bias=bias)
         self.mlp = nn.Conv2d(in_channels, in_channels, 1, 1, 0, bias=True)
 

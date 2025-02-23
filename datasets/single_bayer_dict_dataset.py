@@ -67,7 +67,6 @@ class BaseDictSet(Dataset):
         print('self.data_norm_time:', self.data_norm_time.avg)
 
     def __getitem__(self, index):
-        import pdb
 
         if self.count % 100 == 0 and False:
             self.print_time()

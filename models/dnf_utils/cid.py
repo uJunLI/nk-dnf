@@ -1,12 +1,14 @@
 from jittor import nn
 from utils.conv_padding_mode import Pad2dMode
-
+import jittor as jt
 # CI
 class DConv7(nn.Module):
     def __init__(self, f_number, padding_mode='reflect') -> None:
         super().__init__()
         self.Pad2dMode = Pad2dMode(3,padding_mode)
+        jt.compiler.is_cuda = 0
         self.dconv = nn.Conv2d(f_number, f_number, kernel_size=7, padding=0, groups=f_number)
+        jt.compiler.is_cuda = 1
 
     def execute(self, x):
         x = self.Pad2dMode(x)

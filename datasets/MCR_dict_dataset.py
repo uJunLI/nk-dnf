@@ -173,13 +173,17 @@ class MCRDictSet(Dataset):
         if (self.min_clip is not None):
             noisy_raw = np.maximum(noisy_raw, self.min_clip)
         clean_rgb = clean_rgb.clip(0.0, 1.0)
-        noisy_raw = jt.array(noisy_raw).float()
-        clean_rgb = jt.array(clean_rgb).float()
-        clean_raw = jt.array(clean_raw).float()
+        noisy_raw = jt.Var(noisy_raw).float()
+        # 检查 arr 是否已经是 Jittor Array 类型
+        # if isinstance(clean_rgb, np.float32) or isinstance(clean_rgb, float):
+        clean_rgb = jt.array(np.asarray(clean_rgb),dtype=clean_rgb.dtype)
+        # if isinstance(clean_raw, np.float32) or isinstance(clean_raw, float):
+        clean_raw = jt.Var(clean_raw).float()
 
         # 判断并转换为 jt.Var 类型
         if isinstance(ratio, np.float32) or isinstance(ratio, float):  # 也可以同时处理 np.float32 和 Python 的 float 类型
             ratio = jt.Var(ratio)  # 转换为 jittor 的 jt.Var
+
         return {'noisy_raw': noisy_raw, 'clean_raw': clean_raw, 'clean_rgb': clean_rgb, 'img_file': img_file, 'lbl_file': lbl_file, 'img_exposure': img_expo, 'lbl_exposure': gt_expo, 'ratio': ratio}
 
     def _pack_raw(self, raw, hh=None, ww=None):

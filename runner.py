@@ -80,7 +80,7 @@ def main(config):
     logger.info("Start training")
     start_time = time.time()
     start = time.time()
-    lr_scheduler.step(config['train'].get('start_epoch', 0))
+    lr_scheduler.step()
 
     for epoch in range(config['train'].get('start_epoch', 0)+1, total_epochs+1):
         train_one_epoch(config, train_forward, model, loss_list, train_dataloader, optimizer, None, epoch, lr_scheduler, writer)
@@ -126,6 +126,7 @@ def train_one_epoch(config, train_forward, model, loss_list, data_loader, optimi
 
     start = time.time()
     end = time.time()
+    # jittor len dataloader  = 总的数据 不会处以batch size 
     for idx, data in enumerate(data_loader):
         data_time.update(time.time() - end)
 
@@ -135,38 +136,39 @@ def train_one_epoch(config, train_forward, model, loss_list, data_loader, optimi
         loss = sum(losses)
 
         optimizer.zero_grad()
-        loss.backward()
+        optimizer.backward(loss)
 
-        if config['train'].get('clip_grad'):
-            grad_norm = clip_grad_norm_(model.parameters(), config['train']['clip_grad'])
-        else:
-            grad_norm = get_grad_norm(model.parameters())
+        # if config['train'].get('clip_grad'):
+        #     grad_norm = clip_grad_norm_(model.parameters(), config['train']['clip_grad'])
+        # else:
+        #     grad_norm = get_grad_norm(model.parameters())
 
         optimizer.step()
 
         if not config['train']['lr_scheduler']['t_in_epochs']:
-            lr_scheduler.step_update((epoch-1)*num_steps+idx)
+            lr_scheduler.step_update()
 
         batch_size = list(targets.values())[0].size(0)
+
         for _loss_meter, _loss in zip(losses_meter, losses):
             _loss_meter.update(_loss.item(), batch_size)   
         loss_meter.update(loss.item(), batch_size)
-        norm_meter.update(grad_norm)
+        # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
         if idx % config['print_per_iter'] == 0 or idx == num_steps:
-            lr = optimizer.param_groups[0]['lr']
-            etas = batch_time.avg * (num_steps - idx)
+            lr = optimizer.param_groups[0].get('lr',optimizer.lr)
+            etas = batch_time.avg * (num_steps / batch_size - idx)
             logger.info(
-                f'Train: [{epoch}/{config["train"]["epochs"]}][{idx}/{num_steps}]\t'
+                f'Train: [{epoch}/{config["train"]["epochs"]}][{idx * batch_size}/{num_steps}]\t'
                 f'ETA {datetime.timedelta(seconds=int(etas))} LR {lr:.6f}\t'
-                f'Time {batch_time.sum:.4f} ({batch_time.avg:.4f})\t'
-                f'Data {data_time.sum:.4f} ({data_time.avg:.4f})\t'
-                f'Loss {loss_meter.sum:.8f} ({loss_meter.avg:.8f})\t'
-                f'GradNorm {norm_meter.sum:.4f} ({norm_meter.avg:.4f})\t')
+                f'Time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                f'Data {data_time.val:.4f} ({data_time.avg:.4f})\t'
+                f'Loss {loss_meter.val:.8f} ({loss_meter.avg:.8f})\t')
+                # f'GradNorm {norm_meter.sum:.4f} ({norm_meter.avg:.4f})\t')
     if config['train']['lr_scheduler']['t_in_epochs']:
-        lr_scheduler.step(epoch)
+        lr_scheduler.step()
     logger.info(f"Train: [{epoch}/{config['train']['epochs']}] Time {datetime.timedelta(seconds=int(time.time()-start))}")
     tensor_board_dict = {'train/loss_total':loss_meter.avg}
     for index, (_loss, _loss_meter) in enumerate(zip(losses, losses_meter)):
@@ -215,12 +217,12 @@ def validate(config, test_forward, model, loss_list, data_loader, epoch, writer)
         if config['testset_as_validset'] or idx % config['print_per_iter'] == 0 or idx == len(data_loader):
             
             logger.info(
-                f'Valid: [{epoch}/{config["train"]["epochs"]}][{idx}/{len(data_loader)}]\t'
-                f'Time {batch_time.sum:.4f} ({batch_time.avg:.4f})\t'
-                f'Data {data_time.sum:.4f} ({data_time.avg:.4f})\t'
-                f'Loss {loss_meter.sum:.8f} ({loss_meter.avg:.8f})\t'
-                f'PSNR {psnr_meter.sum:.4f} ({psnr_meter.avg:.4f})\t'
-                f'SSIM {ssim_meter.sum:.4f} ({ssim_meter.avg:.4f})\t')
+                f'Valid: [{epoch}/{config["train"]["epochs"]}][{idx * batch_size}/{len(data_loader)}]\t'
+                f'Time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                f'Data {data_time.val:.4f} ({data_time.avg:.4f})\t'
+                f'Loss {loss_meter.val:.8f} ({loss_meter.avg:.8f})\t'
+                f'PSNR {psnr_meter.val:.4f} ({psnr_meter.avg:.4f})\t'
+                f'SSIM {ssim_meter.val:.4f} ({ssim_meter.avg:.4f})\t')
                
     logger.info(f'Valid: [{epoch}/{config["train"]["epochs"]}] PSNR {psnr_meter.avg:.4f}\tSSIM {ssim_meter.avg:.4f}')
     logger.info(f'Valid: [{epoch}/{config["train"]["epochs"]}] Time {datetime.timedelta(seconds=int(time.time()-start))}')

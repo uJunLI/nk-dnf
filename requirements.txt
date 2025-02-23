@@ -1,7 +1,6 @@
 absl-py==1.4.0
 cachetools==4.2.4
 charset-normalizer==3.1.0
-einops==0.4.0
 fvcore==0.1.5.post20220119
 gitdb==4.0.10
 GitPython==3.1.31
@@ -30,14 +29,7 @@ rsa==4.9
 six==1.16.0
 smmap==5.0.0
 tabulate==0.9.0
-tensorboard==2.6.0
-tensorboard-data-server==0.6.1
-tensorboard-plugin-wit==1.8.1
 termcolor==1.1.0
-timm==0.5.4
-torch==1.10.1+cu111
-torchaudio==0.10.1+cu111
-torchvision==0.11.2+cu111
 tqdm==4.62.3
 typing_extensions==4.5.0
 urllib3==1.26.15
@@ -45,3 +37,4 @@ Werkzeug==2.2.3
 yacs==0.1.8
 zipp==3.15.0
 setuptools==58.0.4
+tensorboardX

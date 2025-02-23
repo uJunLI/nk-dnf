@@ -58,8 +58,7 @@ def inference(config, forward, model, data_loader, logger):
         data_time.update(time.time() - end)
 
         outputs, img_files = forward(config, model, data)
-        import pdb
-        pdb.set_trace()
+   
         output = outputs[config['inference']['which_stage']]
         output = jt.clamp(output, 0, 1) * 255
 

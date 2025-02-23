@@ -1,5 +1,6 @@
 import jittor as jt
 import jittor.nn as nn
+from jittor.nn import MSELoss, L1Loss
 
 class Losses(nn.Module):
     def __init__(self, classes, names, weights, positions, gt_positions):
