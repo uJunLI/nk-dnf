@@ -141,8 +141,6 @@ def ssim(
         raise ValueError("Input images should have the same dimensions.")
 
 
-    print(X.shape)
-    print(Y.shape)
     # for d in range(len(X.shape) - 1, 1, -1):
     # X = X.squeeze(dim=d)
     # Y = Y.squeeze(dim=d)
